@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "water-level-mlops"
 version = "0.1.0"
 description = "IoT water-level monitoring and low-water prediction"
+readme = "README.md"
 requires-python = ">=3.11,<3.14"
 dependencies = [
     "pandas",
@@ -50,16 +51,21 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["src"]
 include = ["wlm*"]
 
 [tool.pytest.ini_options]
-testpaths = ["unit"]
-pythonpath = ["."]
+testpaths = ["tests/unit"]
+pythonpath = ["src"]
+markers = [
+    "integration: requires external services or infrastructure",
+    "slow: takes longer than a typical unit test",
+]
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+src = ["src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]

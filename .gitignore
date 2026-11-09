@@ -18,7 +18,9 @@ dist/
 htmlcov/
 
 # Project data and generated artifacts
-data/
+data/*
+!data/*/
+!data/**/.gitkeep
 mlruns/
 reports/evidently/
 
@@ -30,3 +32,4 @@ node_modules/
 .idea/
 .DS_Store
 Thumbs.db
+orchest/
