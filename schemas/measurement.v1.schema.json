@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WLM measurement v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "device_id",
+    "ts",
+    "seq",
+    "distance_cm",
+    "level_pct",
+    "volume_l",
+    "pump_on",
+    "sensor_ok",
+    "source"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "device_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]{3,32}$"
+    },
+    "ts": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "distance_cm": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 2,
+      "maximum": 400
+    },
+    "level_pct": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 100
+    },
+    "volume_l": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 2000
+    },
+    "pump_on": {
+      "type": "boolean"
+    },
+    "sensor_ok": {
+      "type": "boolean"
+    },
+    "rssi": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": -120,
+      "maximum": 0
+    },
+    "source": {
+      "enum": [
+        "wokwi",
+        "replay",
+        "synthetic"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "sensor_ok": {
+            "const": false
+          }
+        },
+        "required": [
+          "sensor_ok"
+        ]
+      },
+      "then": {
+        "properties": {
+          "distance_cm": {
+            "type": "null"
+          },
+          "level_pct": {
+            "type": "null"
+          },
+          "volume_l": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "sensor_ok": {
+            "const": true
+          }
+        },
+        "required": [
+          "sensor_ok"
+        ]
+      },
+      "then": {
+        "properties": {
+          "distance_cm": {
+            "type": "number"
+          },
+          "level_pct": {
+            "type": "number"
+          },
+          "volume_l": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}

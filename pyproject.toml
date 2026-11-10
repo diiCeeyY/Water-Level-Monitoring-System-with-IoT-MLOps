@@ -14,6 +14,7 @@ dependencies = [
     "pyarrow",
     "pyyaml",
     "pydantic>=2",
+    "jsonschema>=4.21",
     "sqlalchemy>=2",
     "psycopg[binary]",
     "paho-mqtt>=2",

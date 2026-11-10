@@ -9,7 +9,7 @@ architecture and implementation plan.
 Requires Python 3.11 or newer (up to 3.13).
 
 ```powershell
-python -m venv .venv
+python -m venv .venv              
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev]"
 python -m pytest
@@ -21,3 +21,7 @@ ruff format --check src tests
 
 - [Project guide](PROJECT_GUIDE.md)
 - [Roadmap](docs/ROADMAP.md)
+
+
+
+

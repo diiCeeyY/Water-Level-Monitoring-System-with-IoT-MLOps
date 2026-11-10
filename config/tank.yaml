@@ -1,0 +1,25 @@
+device:
+  id: tank-01
+
+tank:
+  shape: vertical_cylinder
+  diameter_cm: 100
+  usable_height_cm: 150
+
+sensor:
+  distance_full_cm: 15
+  distance_empty_cm: 165
+  valid_min_cm: 2
+  valid_max_cm: 400
+
+pump:
+  on_at_or_below_pct: 35
+  off_at_or_above_pct: 90
+  dry_run_timeout_minutes: 10
+  dry_run_min_rise_pct: 1
+  retry_after_dry_run_minutes: 30
+  nominal_flow_lpm: 40
+
+alerts:
+  critical_level_pct: 15
+  warning_level_pct: 25

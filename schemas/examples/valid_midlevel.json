@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "device_id": "tank-01",
+  "ts": "2026-11-07T14:32:00Z",
+  "seq": 8412,
+  "distance_cm": 87.4,
+  "level_pct": 51.7,
+  "volume_l": 609.5,
+  "pump_on": false,
+  "sensor_ok": true,
+  "rssi": -61,
+  "source": "wokwi"
+}

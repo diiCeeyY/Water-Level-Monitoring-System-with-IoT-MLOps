@@ -1,0 +1,120 @@
+{
+  "version": 1,
+  "author": "Water Level Monitoring System",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-devkit-v1",
+      "id": "esp",
+      "top": 0,
+      "left": 0,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-hc-sr04",
+      "id": "sensor",
+      "top": -110,
+      "left": 250,
+      "attrs": {
+        "distance": "87"
+      }
+    },
+    {
+      "type": "wokwi-relay-module",
+      "id": "relay",
+      "top": 100,
+      "left": 260,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-led",
+      "id": "pump-led",
+      "top": 275,
+      "left": 430,
+      "attrs": {
+        "color": "green"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "pump-resistor",
+      "top": 245,
+      "left": 500,
+      "rotate": 90,
+      "attrs": {
+        "value": "220"
+      }
+    }
+  ],
+  "connections": [
+    [
+      "esp:D5",
+      "sensor:TRIG",
+      "green",
+      []
+    ],
+    [
+      "esp:D18",
+      "sensor:ECHO",
+      "blue",
+      []
+    ],
+    [
+      "esp:VIN",
+      "sensor:VCC",
+      "red",
+      []
+    ],
+    [
+      "esp:GND.1",
+      "sensor:GND",
+      "black",
+      []
+    ],
+    [
+      "esp:26",
+      "relay:IN",
+      "orange",
+      []
+    ],
+    [
+      "esp:VIN",
+      "relay:VCC",
+      "red",
+      []
+    ],
+    [
+      "esp:GND.1",
+      "relay:GND",
+      "black",
+      []
+    ],
+    [
+      "esp:VIN",
+      "relay:COM",
+      "red",
+      [
+        "v50"
+      ]
+    ],
+    [
+      "relay:NO",
+      "pump-led:A",
+      "green",
+      []
+    ],
+    [
+      "pump-led:C",
+      "pump-resistor:1",
+      "green",
+      []
+    ],
+    [
+      "pump-resistor:2",
+      "esp:GND.1",
+      "black",
+      []
+    ]
+  ],
+  "dependencies": {}
+}
