@@ -1,0 +1,59 @@
+generator:
+  seed: 20261121
+  start_time: "2026-07-01T00:00:00Z"
+  days: 90
+  interval_seconds: 60
+  initial_level_pct: 80.0
+  daily_consumption_l: 435.0
+  weekend_factor: 1.15
+  consumption_day_sigma: 0.15
+  draw_mean_l: 8.8
+  sensor_noise_sigma_cm: 0.3
+  message_loss_fraction: 0.003
+  network_gap_count: 5
+  network_gap_min_minutes: 3
+  network_gap_max_minutes: 12
+  event_gap_hours: 12
+  event_catalogue:
+    leak_slow:
+      event_type: leak
+      subtype: slow
+      split_counts: [2, 1, 1]
+      duration_hours: [24, 72]
+      flow_lph: [4, 10]
+    leak_burst:
+      event_type: leak
+      subtype: burst
+      split_counts: [1, 0, 1]
+      duration_hours: [2, 6]
+      flow_lph: [60, 150]
+    sensor_frozen:
+      event_type: sensor_frozen
+      split_counts: [2, 1, 1]
+      duration_hours: [2, 12]
+    sensor_blocked:
+      event_type: sensor_blocked
+      split_counts: [1, 1, 1]
+      duration_hours: [3, 18]
+    sensor_dropout:
+      event_type: sensor_dropout
+      split_counts: [2, 1, 1]
+      duration_hours: [0.25, 3]
+    sensor_spike:
+      event_type: sensor_spike
+      split_counts: [12, 4, 4]
+      duration_hours: [0.000001, 0.000001]
+    supply_outage:
+      event_type: supply_outage
+      split_counts: [3, 2, 2]
+      duration_hours: [14, 40]
+      critical_duration_hours: [50, 50]
+    consumption_surge:
+      event_type: consumption_surge
+      split_counts: [2, 1, 1]
+      duration_hours: [1, 4]
+      extra_flow_lph: [80, 200]
+
+split:
+  names: [train, validation, test]
+  days: [63, 14, 13]

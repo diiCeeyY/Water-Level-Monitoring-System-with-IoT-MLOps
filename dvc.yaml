@@ -1,0 +1,40 @@
+stages:
+  generate:
+    cmd: python -m wlm.data.generate --params params.yaml --out data/raw
+    deps:
+      - config/tank.yaml
+      - pyproject.toml
+      - src/wlm/data/generate.py
+      - src/wlm/data/generator.py
+      - src/wlm/data/scenarios.py
+      - src/wlm/tank.py
+    params:
+      - generator
+      - split
+    outs:
+      - data/raw/historical_90d.parquet
+      - data/raw/events_90d.parquet
+
+  validate:
+    cmd: >-
+      python -m wlm.data.validate
+      --data data/raw/historical_90d.parquet
+      --events data/raw/events_90d.parquet
+      --params params.yaml
+      --plots-dir reports/data_validation
+    deps:
+      - config/tank.yaml
+      - data/raw/events_90d.parquet
+      - data/raw/historical_90d.parquet
+      - pyproject.toml
+      - schemas/measurement.v1.schema.json
+      - src/wlm/data/validate.py
+      - src/wlm/schema.py
+      - src/wlm/tank.py
+    params:
+      - generator
+      - split
+    outs:
+      - reports/data_validation/daily_profile.png
+      - reports/data_validation/level_with_events.png
+      - reports/data_validation/refill_timing.png

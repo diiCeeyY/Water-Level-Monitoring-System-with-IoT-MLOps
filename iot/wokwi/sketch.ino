@@ -3,6 +3,7 @@
 #include <PubSubClient.h>
 #include <WiFi.h>
 #include <algorithm>
+#include <esp_sntp.h>
 #include <math.h>
 #include <time.h>
 
@@ -18,7 +19,7 @@ constexpr uint32_t MQTT_RETRY_INTERVAL_MS = 5000;
 constexpr uint8_t PING_COUNT = 5;
 constexpr uint32_t ECHO_TIMEOUT_US = 30000;
 constexpr char WIFI_SSID[] = "Wokwi-GUEST";
-constexpr char MQTT_HOST[] = "broker.hivemq.com";
+constexpr char MQTT_HOST[] = "test.mosquitto.org";
 constexpr uint16_t MQTT_PORT = 1883;
 
 WiFiClient wifiClient;
@@ -36,10 +37,27 @@ bool pumpOn = false;
 bool dryRunLockout = false;
 bool wifiAttempted = false;
 bool mqttAttempted = false;
+bool ntpConfigured = false;
+bool ntpSyncReported = false;
+volatile bool ntpSynced = false;
+
+void onNtpTimeSync(struct timeval* timeValue) {
+  (void)timeValue;
+  ntpSynced = true;
+}
 
 bool getUtcTimestamp(char* output, size_t outputSize) {
+  if (!ntpSynced) {
+    return false;
+  }
+
+  const time_t now = time(nullptr);
+  if (now < 1577836800) {
+    return false;
+  }
+
   struct tm timeInfo;
-  if (!getLocalTime(&timeInfo, 20)) {
+  if (gmtime_r(&now, &timeInfo) == nullptr) {
     return false;
   }
   return strftime(output, outputSize, "%Y-%m-%dT%H:%M:%SZ", &timeInfo) > 0;
@@ -182,6 +200,12 @@ void connectMqttIfNeeded() {
 
 void connectWifiIfNeeded() {
   if (WiFi.status() == WL_CONNECTED) {
+    if (!ntpConfigured) {
+      ntpConfigured = true;
+      Serial.printf("WiFi connected; starting UTC sync (IP %s).\n",
+                    WiFi.localIP().toString().c_str());
+      configTime(0, 0, "time.google.com", "time.cloudflare.com", "pool.ntp.org");
+    }
     return;
   }
   const uint32_t now = millis();
@@ -200,7 +224,7 @@ void publishMeasurement(bool sensorOk, float distanceCm, float levelPct, float v
   }
   char timestamp[25];
   if (!getUtcTimestamp(timestamp, sizeof(timestamp))) {
-    Serial.println("NTP time is not ready; telemetry was not published.");
+    Serial.println("SNTP sync pending; telemetry was not published.");
     return;
   }
 
@@ -248,13 +272,20 @@ void setup() {
   if (!MQTT_PREFIX_CONFIGURED) {
     Serial.println("MQTT is disabled until a unique topic prefix is configured.");
   } else {
-    configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+    sntp_set_time_sync_notification_cb(onNtpTimeSync);
     WiFi.mode(WIFI_STA);
   }
 }
 
 void loop() {
   connectWifiIfNeeded();
+  if (ntpSynced && !ntpSyncReported) {
+    ntpSyncReported = true;
+    char timestamp[25];
+    if (getUtcTimestamp(timestamp, sizeof(timestamp))) {
+      Serial.printf("SNTP synchronized; device UTC clock is %s.\n", timestamp);
+    }
+  }
   connectMqttIfNeeded();
   mqttClient.loop();
 

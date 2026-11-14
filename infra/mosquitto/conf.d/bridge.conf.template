@@ -1,0 +1,10 @@
+connection public-bridge
+address @MQTT_PUBLIC_HOST@:@MQTT_PUBLIC_PORT@
+bridge_protocol_version mqttv311
+try_private false
+cleansession true
+start_type automatic
+restart_timeout 5 30
+keepalive_interval 60
+remote_clientid @MQTT_BRIDGE_CLIENT_ID@
+topic @MQTT_TOPIC_PREFIX@/# in 0

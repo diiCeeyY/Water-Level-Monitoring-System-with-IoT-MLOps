@@ -1,0 +1,268 @@
+[
+  {
+    "id": "wlm-ingestion-tab",
+    "type": "tab",
+    "label": "WLM ingestion",
+    "disabled": false,
+    "info": "Validate local MQTT telemetry/status, store valid data, and quarantine invalid payloads."
+  },
+  {
+    "id": "wlm-local-mqtt",
+    "type": "mqtt-broker",
+    "name": "Local Mosquitto",
+    "broker": "mosquitto",
+    "port": "1883",
+    "clientid": "wlm-nodered",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthRetain": "false",
+    "birthPayload": "",
+    "closeTopic": "",
+    "closeQos": "0",
+    "closeRetain": "false",
+    "closePayload": "",
+    "willTopic": "",
+    "willQos": "0",
+    "willRetain": "false",
+    "willPayload": "",
+    "userProps": "",
+    "sessionExpiry": ""
+  },
+  {
+    "id": "wlm-postgres-config",
+    "type": "postgreSQLConfig",
+    "name": "TimescaleDB ingest",
+    "host": "timescaledb",
+    "hostFieldType": "str",
+    "port": "5432",
+    "portFieldType": "num",
+    "database": "wlm",
+    "databaseFieldType": "str",
+    "ssl": "false",
+    "sslFieldType": "bool",
+    "applicationName": "node-red-ingestion",
+    "applicationNameType": "str",
+    "max": "5",
+    "maxFieldType": "num",
+    "idle": "1000",
+    "idleFieldType": "num",
+    "connectionTimeout": "10000",
+    "connectionTimeoutFieldType": "num",
+    "userFieldType": "env",
+    "userEnv": "DB_USER_INGEST",
+    "passwordFieldType": "env",
+    "passwordEnv": "DB_PASS_INGEST"
+  },
+  {
+    "id": "wlm-telemetry-in",
+    "type": "mqtt in",
+    "z": "wlm-ingestion-tab",
+    "name": "Telemetry",
+    "topic": "${MQTT_TELEMETRY_TOPIC}",
+    "qos": "0",
+    "datatype": "utf8",
+    "broker": "wlm-local-mqtt",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 160,
+    "y": 120,
+    "wires": [
+      [
+        "wlm-validate-route"
+      ]
+    ]
+  },
+  {
+    "id": "wlm-status-in",
+    "type": "mqtt in",
+    "z": "wlm-ingestion-tab",
+    "name": "Device status",
+    "topic": "${MQTT_STATUS_TOPIC}",
+    "qos": "0",
+    "datatype": "utf8",
+    "broker": "wlm-local-mqtt",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 160,
+    "y": 180,
+    "wires": [
+      [
+        "wlm-validate-route"
+      ]
+    ]
+  },
+  {
+    "id": "wlm-validate-route",
+    "type": "function",
+    "z": "wlm-ingestion-tab",
+    "name": "Validate and route",
+    "func": "const raw = Buffer.isBuffer(msg.payload) ? msg.payload.toString('utf8') : (typeof msg.payload === 'string' ? msg.payload : JSON.stringify(msg.payload));\nconst parts = String(msg.topic || '').split('/');\nconst deviceIdFromTopic = parts.length === 4 ? parts[2] : '';\n\nfunction quarantine(reason) {\n    msg.query = 'INSERT INTO invalid_messages (topic, payload, reason) VALUES ($1, $2, $3)';\n    msg.params = [String(msg.topic || ''), raw, reason];\n    return [null, msg, null, null];\n}\n\nlet value;\ntry {\n    value = JSON.parse(raw);\n} catch (error) {\n    return quarantine('invalid JSON');\n}\n\nif (parts.length === 4 && parts[3] === 'telemetry') {\n    const required = ['schema_version', 'device_id', 'ts', 'seq', 'distance_cm', 'level_pct', 'volume_l', 'pump_on', 'sensor_ok', 'source'];\n    if (!value || typeof value !== 'object' || Array.isArray(value)) return quarantine('payload must be a JSON object');\n    const missing = required.filter(key => !Object.prototype.hasOwnProperty.call(value, key));\n    if (missing.length) return quarantine('missing required fields: ' + missing.join(', '));\n    const allowed = new Set(required.concat('rssi'));\n    const extra = Object.keys(value).filter(key => !allowed.has(key));\n    if (extra.length) return quarantine('unexpected fields: ' + extra.join(', '));\n    const timestamp = Date.parse(value.ts);\n    const isUtc = typeof value.ts === 'string' && /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?Z$/.test(value.ts);\n    const inRange = (number, low, high) => typeof number === 'number' && Number.isFinite(number) && number >= low && number <= high;\n    let reason = '';\n    if (value.schema_version !== 1) reason = 'schema_version must equal 1';\n    else if (typeof value.device_id !== 'string' || !/^[a-z0-9-]{3,32}$/.test(value.device_id) || value.device_id !== deviceIdFromTopic) reason = 'device_id does not match the topic';\n    else if (!isUtc || !Number.isFinite(timestamp) || (value.source === 'replay' ? timestamp > Date.now() + 86400000 : Math.abs(Date.now() - timestamp) > 86400000)) reason = value.source === 'replay' ? 'replay ts must not be more than 24 hours in the future' : 'ts must be UTC and within 24 hours of receipt';\n    else if (!Number.isInteger(value.seq) || value.seq < 0) reason = 'seq must be a non-negative integer';\n    else if (typeof value.pump_on !== 'boolean' || typeof value.sensor_ok !== 'boolean') reason = 'pump_on and sensor_ok must be booleans';\n    else if (!['wokwi', 'replay', 'synthetic'].includes(value.source)) reason = 'source is unsupported';\n    else if (value.sensor_ok && (!inRange(value.distance_cm, 2, 400) || !inRange(value.level_pct, 0, 100) || !inRange(value.volume_l, 0, 2000))) reason = 'valid sensor values are missing or out of range';\n    else if (!value.sensor_ok && (value.distance_cm !== null || value.level_pct !== null || value.volume_l !== null)) reason = 'invalid sensor values must be null';\n    else if (value.rssi !== undefined && value.rssi !== null && (!Number.isInteger(value.rssi) || value.rssi < -120 || value.rssi > 0)) reason = 'rssi must be null or an integer from -120 to 0';\n    if (reason) return quarantine(reason);\n\n    msg.query = 'WITH inserted AS (INSERT INTO measurements (time, device_id, seq, distance_cm, level_pct, volume_l, pump_on, sensor_ok, rssi, source, schema_version) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) ON CONFLICT (device_id, time) DO NOTHING RETURNING device_id, time, seq) INSERT INTO device_status (device_id, online, last_seen, last_seq) SELECT device_id, TRUE, time, seq FROM inserted WHERE TRUE ON CONFLICT (device_id) DO UPDATE SET online = TRUE, last_seen = GREATEST(device_status.last_seen, EXCLUDED.last_seen), last_seq = EXCLUDED.last_seq, updated_at = now()';\n    msg.params = [value.ts, value.device_id, value.seq, value.distance_cm, value.level_pct, value.volume_l, value.pump_on, value.sensor_ok, value.rssi === undefined ? null : value.rssi, value.source, value.schema_version];\n    return [msg, null, null, null];\n}\n\nif (parts.length === 4 && parts[3] === 'status') {\n    if (!value || typeof value !== 'object' || Array.isArray(value) || typeof value.online !== 'boolean') return quarantine('status must be an object with boolean online');\n    if (typeof value.device_id !== 'string' || !/^[a-z0-9-]{3,32}$/.test(value.device_id) || value.device_id !== deviceIdFromTopic) return quarantine('status device_id does not match the topic');\n    let statusTimestamp = null;\n    if (value.ts !== undefined) {\n        const parsedTimestamp = Date.parse(value.ts);\n        if (typeof value.ts !== 'string' || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?Z$/.test(value.ts) || !Number.isFinite(parsedTimestamp) || Math.abs(Date.now() - parsedTimestamp) > 86400000) return quarantine('status ts must be UTC and within 24 hours of receipt');\n        statusTimestamp = value.ts;\n    }\n    if (value.fw !== undefined && (typeof value.fw !== 'string' || value.fw.length > 32)) return quarantine('fw must be a string of at most 32 characters');\n    msg.query = 'INSERT INTO device_status (device_id, online, last_seen, fw_version, updated_at) VALUES ($1, $2, COALESCE($3::timestamptz, now()), $4, now()) ON CONFLICT (device_id) DO UPDATE SET online = EXCLUDED.online, last_seen = CASE WHEN EXCLUDED.online THEN GREATEST(device_status.last_seen, EXCLUDED.last_seen) ELSE device_status.last_seen END, fw_version = COALESCE(EXCLUDED.fw_version, device_status.fw_version), updated_at = now()';\n    msg.params = [value.device_id, value.online, statusTimestamp, value.fw === undefined ? null : value.fw];\n    return [null, null, msg, null];\n}\n\nreturn quarantine('unexpected MQTT topic');",
+    "outputs": 4,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 420,
+    "y": 150,
+    "wires": [
+      [
+        "wlm-insert-measurement"
+      ],
+      [
+        "wlm-quarantine-invalid"
+      ],
+      [
+        "wlm-upsert-status"
+      ],
+      []
+    ]
+  },
+  {
+    "id": "wlm-insert-measurement",
+    "type": "postgresql",
+    "z": "wlm-ingestion-tab",
+    "name": "Insert measurement",
+    "query": "SELECT 1;",
+    "postgreSQLConfig": "wlm-postgres-config",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 710,
+    "y": 100,
+    "wires": [
+      [
+        "wlm-insert-debug"
+      ]
+    ]
+  },
+  {
+    "id": "wlm-quarantine-invalid",
+    "type": "postgresql",
+    "z": "wlm-ingestion-tab",
+    "name": "Quarantine invalid",
+    "query": "SELECT 1;",
+    "postgreSQLConfig": "wlm-postgres-config",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 710,
+    "y": 160,
+    "wires": [
+      [
+        "wlm-invalid-debug"
+      ]
+    ]
+  },
+  {
+    "id": "wlm-upsert-status",
+    "type": "postgresql",
+    "z": "wlm-ingestion-tab",
+    "name": "Update device status",
+    "query": "SELECT 1;",
+    "postgreSQLConfig": "wlm-postgres-config",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 710,
+    "y": 220,
+    "wires": [
+      [
+        "wlm-status-debug"
+      ]
+    ]
+  },
+  {
+    "id": "wlm-insert-debug",
+    "type": "debug",
+    "z": "wlm-ingestion-tab",
+    "name": "Stored measurement",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "\"Measurement stored\"",
+    "targetType": "jsonata",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 970,
+    "y": 100,
+    "wires": []
+  },
+  {
+    "id": "wlm-invalid-debug",
+    "type": "debug",
+    "z": "wlm-ingestion-tab",
+    "name": "Quarantined message",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "\"Invalid message quarantined\"",
+    "targetType": "jsonata",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 970,
+    "y": 160,
+    "wires": []
+  },
+  {
+    "id": "wlm-status-debug",
+    "type": "debug",
+    "z": "wlm-ingestion-tab",
+    "name": "Updated device status",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "\"Device status updated\"",
+    "targetType": "jsonata",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 970,
+    "y": 220,
+    "wires": []
+  },
+  {
+    "id": "wlm-db-errors",
+    "type": "catch",
+    "z": "wlm-ingestion-tab",
+    "name": "Database errors",
+    "scope": null,
+    "uncaught": false,
+    "x": 440,
+    "y": 290,
+    "wires": [
+      [
+        "wlm-error-debug"
+      ]
+    ]
+  },
+  {
+    "id": "wlm-error-debug",
+    "type": "debug",
+    "z": "wlm-ingestion-tab",
+    "name": "Ingestion error",
+    "active": true,
+    "tosidebar": true,
+    "console": true,
+    "tostatus": false,
+    "complete": "error",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 710,
+    "y": 290,
+    "wires": []
+  }
+]

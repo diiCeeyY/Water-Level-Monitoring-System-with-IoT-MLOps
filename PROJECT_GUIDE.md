@@ -1576,8 +1576,8 @@ Every run is traceable to: Git commit (code) + `data_sha256` (data) + `params.ya
 
 | Service | Image | Host port | Volumes | Needs | Profile | RAM cap |
 |---|---|---|---|---|---|---|
-| `timescaledb` | `timescale/timescaledb:<2.x.y>-pg17` | 127.0.0.1:5432 | `pgdata`, init scripts (ro) | — | default | 512 MB |
-| `mosquitto` | `eclipse-mosquitto:2` | 127.0.0.1:1883 | config (ro), `mosquitto-data` | — | default | 64 MB |
+| `timescaledb` | `timescale/timescaledb:<2.x.y>-pg17` | 127.0.0.1:${POSTGRES_HOST_PORT:-5433} | `pgdata`, init scripts (ro) | — | default | 512 MB |
+| `mosquitto` | `eclipse-mosquitto:2` | 127.0.0.1:1883 | config and password file (writable bind mounts for entrypoint ownership), `mosquitto-data` | — | default | 64 MB |
 | `nodered` | `nodered/node-red:<pinned>` + custom `Dockerfile` (adds palette node) | 127.0.0.1:1880 | `nodered-data` | `mosquitto`, `timescaledb` | default | 384 MB |
 | `grafana` | `grafana/grafana:<pinned>` | 127.0.0.1:3000 | `grafana-data`, provisioning (ro) | `timescaledb` | default | 384 MB |
 | `mlflow` | custom (`ghcr.io/mlflow/mlflow:<ver>` + `psycopg2-binary`) | 127.0.0.1:5000 | `mlflow-artifacts` | `timescaledb` | default | 512 MB |
@@ -1600,10 +1600,13 @@ MQTT_USER_NODERED=nodered
 MQTT_PASS_NODERED=CHANGEME
 MQTT_USER_REPLAY=replay
 MQTT_PASS_REPLAY=CHANGEME
+MQTT_USER_HEALTHCHECK=healthcheck
+MQTT_PASS_HEALTHCHECK=CHANGEME
 # --- Database ---
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=CHANGEME
 POSTGRES_DB=wlm
+POSTGRES_HOST_PORT=5433
 DB_PASS_INGEST=CHANGEME
 DB_PASS_ML=CHANGEME
 DB_PASS_GRAFANA=CHANGEME
@@ -1670,7 +1673,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data               # named volume, NOT a Windows bind mount
       - ./infra/timescaledb/init:/docker-entrypoint-initdb.d:ro
-    ports: ["127.0.0.1:5432:5432"]
+    ports: ["127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -1681,10 +1684,11 @@ services:
     image: eclipse-mosquitto:2
     restart: unless-stopped
     volumes:
-      - ./infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
-      - ./infra/mosquitto/passwd:/mosquitto/config/passwd:ro
-      - ./infra/mosquitto/aclfile:/mosquitto/config/aclfile:ro
-      - ./infra/mosquitto/conf.d:/mosquitto/config/conf.d:ro
+      # Writable config mounts let the image entrypoint set ownership for Mosquitto.
+      - ./infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./infra/mosquitto/passwd:/mosquitto/config/passwd
+      - ./infra/mosquitto/aclfile:/mosquitto/config/aclfile
+      - ./infra/mosquitto/conf.d:/mosquitto/config/conf.d
       - ./schemas/examples:/examples:ro
       - mosquitto-data:/mosquitto/data
     ports: ["127.0.0.1:1883:1883"]

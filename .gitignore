@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 infra/mosquitto/passwd
+infra/mosquitto/conf.d/bridge.conf
+**/flows_cred.json
+**/flows_cred.json.backup
 
 # Python
 .venv/
@@ -21,6 +24,7 @@ htmlcov/
 data/*
 !data/*/
 !data/**/.gitkeep
+data/raw/*.parquet
 mlruns/
 reports/evidently/
 

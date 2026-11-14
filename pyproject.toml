@@ -42,6 +42,9 @@ jobs = [
     "httpx",
     "matplotlib",
 ]
+data = [
+    "matplotlib",
+]
 dev = [
     "pytest",
     "pytest-cov",

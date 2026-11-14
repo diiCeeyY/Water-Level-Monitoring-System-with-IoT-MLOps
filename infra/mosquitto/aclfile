@@ -1,0 +1,10 @@
+user nodered
+topic read wlm/+/+/telemetry
+topic read wlm/+/+/status
+
+user replay
+topic write wlm/+/+/telemetry
+topic write wlm/+/+/status
+
+user healthcheck
+topic read $SYS/#

@@ -58,6 +58,9 @@ firmware in the Wokwi simulator UI:
    generated `config.h`. The HC-SR04 must be wired **D5 → TRIG**, **D18 → ECHO**,
    **VIN → VCC**, and **GND → GND**.
 3. Start the simulation with Wokwi's play button. Keep it running while checking telemetry.
+   The firmware formats timestamps from the UTC Unix clock, independently of the simulator's
+   local timezone. If the serial monitor reports that NTP time is not ready, wait for Wi-Fi/NTP
+   synchronization before expecting telemetry.
 4. Move the distance slider and watch the serial monitor. With the configured tank:
    - `120 cm` should show about `30.0%` and turn the pump indicator on.
    - `25 cm` should show about `93.3%` and turn the pump indicator off.

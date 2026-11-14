@@ -1,0 +1,316 @@
+schema: '2.0'
+stages:
+  generate:
+    cmd: python -m wlm.data.generate --params params.yaml --out data/raw
+    deps:
+    - path: config/tank.yaml
+      hash: md5
+      md5: 1f5446e0a7ea0b03a87f5cd95a72ed6a
+      size: 448
+    - path: pyproject.toml
+      hash: md5
+      md5: 260a92bc979563221ded297da668ea61
+      size: 1365
+    - path: src/wlm/data/generate.py
+      hash: md5
+      md5: 15ef9f9778dbb9a92b260b79dbfcb10f
+      size: 1568
+    - path: src/wlm/data/generator.py
+      hash: md5
+      md5: 92f1d6d85f8303018ec228b8587ae6ea
+      size: 10399
+    - path: src/wlm/data/scenarios.py
+      hash: md5
+      md5: 7f2523cd7873cf747acfffc08117f7ea
+      size: 4631
+    - path: src/wlm/tank.py
+      hash: md5
+      md5: a21891cad032759dc6ab3e5ed1e2bf3c
+      size: 5908
+    params:
+      params.yaml:
+        generator:
+          seed: 20261121
+          start_time: '2026-07-01T00:00:00Z'
+          days: 90
+          interval_seconds: 60
+          initial_level_pct: 80.0
+          daily_consumption_l: 435.0
+          weekend_factor: 1.15
+          consumption_day_sigma: 0.15
+          draw_mean_l: 8.8
+          sensor_noise_sigma_cm: 0.3
+          message_loss_fraction: 0.003
+          network_gap_count: 5
+          network_gap_min_minutes: 3
+          network_gap_max_minutes: 12
+          event_gap_hours: 12
+          event_catalogue:
+            leak_slow:
+              event_type: leak
+              subtype: slow
+              split_counts:
+              - 2
+              - 1
+              - 1
+              duration_hours:
+              - 24
+              - 72
+              flow_lph:
+              - 4
+              - 10
+            leak_burst:
+              event_type: leak
+              subtype: burst
+              split_counts:
+              - 1
+              - 0
+              - 1
+              duration_hours:
+              - 2
+              - 6
+              flow_lph:
+              - 60
+              - 150
+            sensor_frozen:
+              event_type: sensor_frozen
+              split_counts:
+              - 2
+              - 1
+              - 1
+              duration_hours:
+              - 2
+              - 12
+            sensor_blocked:
+              event_type: sensor_blocked
+              split_counts:
+              - 1
+              - 1
+              - 1
+              duration_hours:
+              - 3
+              - 18
+            sensor_dropout:
+              event_type: sensor_dropout
+              split_counts:
+              - 2
+              - 1
+              - 1
+              duration_hours:
+              - 0.25
+              - 3
+            sensor_spike:
+              event_type: sensor_spike
+              split_counts:
+              - 12
+              - 4
+              - 4
+              duration_hours:
+              - 1e-06
+              - 1e-06
+            supply_outage:
+              event_type: supply_outage
+              split_counts:
+              - 3
+              - 2
+              - 2
+              duration_hours:
+              - 14
+              - 40
+              critical_duration_hours:
+              - 50
+              - 50
+            consumption_surge:
+              event_type: consumption_surge
+              split_counts:
+              - 2
+              - 1
+              - 1
+              duration_hours:
+              - 1
+              - 4
+              extra_flow_lph:
+              - 80
+              - 200
+        split:
+          names:
+          - train
+          - validation
+          - test
+          days:
+          - 63
+          - 14
+          - 13
+    outs:
+    - path: data/raw/events_90d.parquet
+      hash: md5
+      md5: a875d304b0d3469c171be48cf4dca640
+      size: 6693
+    - path: data/raw/historical_90d.parquet
+      hash: md5
+      md5: 6167222cbeed1b7354dbde95690ebf78
+      size: 2029726
+  validate:
+    cmd: python -m wlm.data.validate --data data/raw/historical_90d.parquet
+      --events data/raw/events_90d.parquet --params params.yaml --plots-dir
+      reports/data_validation
+    deps:
+    - path: config/tank.yaml
+      hash: md5
+      md5: 1f5446e0a7ea0b03a87f5cd95a72ed6a
+      size: 448
+    - path: data/raw/events_90d.parquet
+      hash: md5
+      md5: a875d304b0d3469c171be48cf4dca640
+      size: 6693
+    - path: data/raw/historical_90d.parquet
+      hash: md5
+      md5: 6167222cbeed1b7354dbde95690ebf78
+      size: 2029726
+    - path: pyproject.toml
+      hash: md5
+      md5: 260a92bc979563221ded297da668ea61
+      size: 1365
+    - path: schemas/measurement.v1.schema.json
+      hash: md5
+      md5: e4831df07ed35c8ef194c97ffce88ee4
+      size: 2407
+    - path: src/wlm/data/validate.py
+      hash: md5
+      md5: 9fafd389df78c91f2cc2d61634899bfd
+      size: 11377
+    - path: src/wlm/schema.py
+      hash: md5
+      md5: a5f9f8e0c7c3e66ee42e6a25a7684160
+      size: 3831
+    - path: src/wlm/tank.py
+      hash: md5
+      md5: a21891cad032759dc6ab3e5ed1e2bf3c
+      size: 5908
+    params:
+      params.yaml:
+        generator:
+          seed: 20261121
+          start_time: '2026-07-01T00:00:00Z'
+          days: 90
+          interval_seconds: 60
+          initial_level_pct: 80.0
+          daily_consumption_l: 435.0
+          weekend_factor: 1.15
+          consumption_day_sigma: 0.15
+          draw_mean_l: 8.8
+          sensor_noise_sigma_cm: 0.3
+          message_loss_fraction: 0.003
+          network_gap_count: 5
+          network_gap_min_minutes: 3
+          network_gap_max_minutes: 12
+          event_gap_hours: 12
+          event_catalogue:
+            leak_slow:
+              event_type: leak
+              subtype: slow
+              split_counts:
+              - 2
+              - 1
+              - 1
+              duration_hours:
+              - 24
+              - 72
+              flow_lph:
+              - 4
+              - 10
+            leak_burst:
+              event_type: leak
+              subtype: burst
+              split_counts:
+              - 1
+              - 0
+              - 1
+              duration_hours:
+              - 2
+              - 6
+              flow_lph:
+              - 60
+              - 150
+            sensor_frozen:
+              event_type: sensor_frozen
+              split_counts:
+              - 2
+              - 1
+              - 1
+              duration_hours:
+              - 2
+              - 12
+            sensor_blocked:
+              event_type: sensor_blocked
+              split_counts:
+              - 1
+              - 1
+              - 1
+              duration_hours:
+              - 3
+              - 18
+            sensor_dropout:
+              event_type: sensor_dropout
+              split_counts:
+              - 2
+              - 1
+              - 1
+              duration_hours:
+              - 0.25
+              - 3
+            sensor_spike:
+              event_type: sensor_spike
+              split_counts:
+              - 12
+              - 4
+              - 4
+              duration_hours:
+              - 1e-06
+              - 1e-06
+            supply_outage:
+              event_type: supply_outage
+              split_counts:
+              - 3
+              - 2
+              - 2
+              duration_hours:
+              - 14
+              - 40
+              critical_duration_hours:
+              - 50
+              - 50
+            consumption_surge:
+              event_type: consumption_surge
+              split_counts:
+              - 2
+              - 1
+              - 1
+              duration_hours:
+              - 1
+              - 4
+              extra_flow_lph:
+              - 80
+              - 200
+        split:
+          names:
+          - train
+          - validation
+          - test
+          days:
+          - 63
+          - 14
+          - 13
+    outs:
+    - path: reports/data_validation/daily_profile.png
+      hash: md5
+      md5: 26cdbfdf4c6d844b15aded9bc29f50bb
+      size: 60678
+    - path: reports/data_validation/level_with_events.png
+      hash: md5
+      md5: 6ed0b2547109febf6b9208f1575d03ef
+      size: 178457
+    - path: reports/data_validation/refill_timing.png
+      hash: md5
+      md5: 34789e67652b3989b19d96c196323a7c
+      size: 21617

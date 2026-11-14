@@ -1,0 +1,474 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      },
+      {
+        "datasource": {
+          "type": "postgres",
+          "uid": "timescaledb"
+        },
+        "enable": true,
+        "iconColor": "red",
+        "name": "Ground-truth events",
+        "rawQuery": true,
+        "target": {
+          "format": "table",
+          "rawSql": "SELECT start_time AS time, end_time AS \"timeEnd\", event_type || COALESCE(CASE WHEN params->>'subtype' IS DISTINCT FROM event_type THEN ' / ' || (params->>'subtype') END, '') AS text, event_type AS tags FROM ground_truth_events WHERE device_id = '${device}' AND start_time <= $__timeTo() AND end_time >= $__timeFrom() ORDER BY start_time",
+          "refId": "Annotations"
+        },
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Live and historical water-level status from TimescaleDB. Stored times are UTC; display follows the browser timezone.",
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "timescaledb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 15
+              },
+              {
+                "color": "green",
+                "value": 25
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "timescaledb"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT time AS time, level_pct AS \"Level %\" FROM measurements WHERE device_id = '${device}' AND level_pct IS NOT NULL ORDER BY time DESC LIMIT 1",
+          "refId": "A"
+        }
+      ],
+      "title": "Current level",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "timescaledb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "litre"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto"
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "timescaledb"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT time AS time, volume_l AS \"Volume (L)\" FROM measurements WHERE device_id = '${device}' AND volume_l IS NOT NULL ORDER BY time DESC LIMIT 1",
+          "refId": "A"
+        }
+      ],
+      "title": "Current volume",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "timescaledb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 1,
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto"
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "timescaledb"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT now() AS time, EXTRACT(EPOCH FROM (now() - max(ingested_at))) AS \"Last message age (s)\" FROM measurements WHERE device_id = '${device}'",
+          "refId": "A"
+        }
+      ],
+      "title": "Last message age",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "timescaledb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto"
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "timescaledb"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT now() AS time, count(*) FILTER (WHERE ingested_at >= now() - interval '1 minute')::double precision AS \"Messages/min\" FROM measurements WHERE device_id = '${device}'",
+          "refId": "A"
+        }
+      ],
+      "title": "Messages / minute",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "timescaledb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "max": 100,
+          "min": 0,
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 16,
+        "x": 0,
+        "y": 8
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "timescaledb"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT $__timeGroupAlias(time, '15m'), avg(level_pct) AS \"Level %\" FROM measurements WHERE device_id = '${device}' AND $__timeFilter(time) AND level_pct IS NOT NULL GROUP BY 1 ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "title": "Level history",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "timescaledb"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
+        "y": 8
+      },
+      "id": 6,
+      "options": {
+        "alignValue": "left",
+        "mergeValues": true,
+        "rowHeight": 0.9,
+        "showValue": "auto",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "timescaledb"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT DISTINCT ON (date_trunc('minute', time)) date_trunc('minute', time) AS time, CASE WHEN pump_on THEN 'ON' ELSE 'OFF' END AS state FROM measurements WHERE device_id = '${device}' AND $__timeFilter(time) ORDER BY date_trunc('minute', time), time DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Pump state",
+      "type": "state-timeline"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "timescaledb"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "id": 7,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "timescaledb"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT NULL::timestamptz AS time, NULL::text AS alert, NULL::text AS severity WHERE FALSE",
+          "refId": "A"
+        }
+      ],
+      "title": "Alerts (not implemented yet)",
+      "type": "table"
+    },
+    {
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 0,
+        "y": 24
+      },
+      "id": 8,
+      "options": {
+        "content": "### Forecast overlay\nPlanned for Phase 5. No forecast is available yet.",
+        "mode": "markdown"
+      },
+      "pluginVersion": "11.4.0",
+      "title": "Forecast overlay",
+      "type": "text"
+    },
+    {
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 8,
+        "y": 24
+      },
+      "id": 9,
+      "options": {
+        "content": "### Autonomy\nPlanned for Phase 5. No autonomy estimate is available yet.",
+        "mode": "markdown"
+      },
+      "pluginVersion": "11.4.0",
+      "title": "Autonomy",
+      "type": "text"
+    },
+    {
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 24
+      },
+      "id": 10,
+      "options": {
+        "content": "### Anomaly score\nPlanned for Phase 5. No anomaly score is available yet.",
+        "mode": "markdown"
+      },
+      "pluginVersion": "11.4.0",
+      "title": "Anomaly score",
+      "type": "text"
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": [
+    "water-level",
+    "timescaledb"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "tank-01",
+          "value": "tank-01"
+        },
+        "datasource": {
+          "type": "postgres",
+          "uid": "timescaledb"
+        },
+        "definition": "SELECT DISTINCT device_id FROM measurements ORDER BY device_id",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Device",
+        "multi": false,
+        "name": "device",
+        "options": [],
+        "query": "SELECT DISTINCT device_id FROM measurements ORDER BY device_id",
+        "refresh": 1,
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-180d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Water Level Monitoring",
+  "uid": "wlm-main",
+  "version": 1,
+  "weekStart": ""
+}

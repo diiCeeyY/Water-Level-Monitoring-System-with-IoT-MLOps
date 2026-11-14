@@ -128,6 +128,7 @@ python tools/validate_stream.py --prefix $env:MQTT_TOPIC_PREFIX --seconds 60
 - **Learn first:** brokers/topics/bridge (A2-A3), Node-RED (A4), time-series DB and hypertables (A5-A6), Compose, networking, volumes, env vars (D4-D7).
 - **Technologies:** Docker Compose, Eclipse Mosquitto, Node-RED + `node-red-contrib-postgresql`, TimescaleDB.
 - **Depends on:** phase 1.
+- **PowerShell setup walkthrough:** [`PHASE2-DOCKER.md`](./PHASE2-DOCKER.md).
 - **Tasks**
   1. `docker-compose.yml` with `timescaledb`, `mosquitto`, `nodered` (Guide §16.4); named volumes; ports on `127.0.0.1`; healthchecks.
   2. `infra/timescaledb/init/` scripts: schema (Guide §9.3), MLflow DB creation, roles, seed `devices` from `tank.yaml`.
@@ -169,16 +170,19 @@ docker stats --no-stream                    # RAM per container
 - **Commands**
 
 ```powershell
-python -m wlm.data.generate --params params.yaml --out data/raw
-python -m wlm.data.validate --data data/raw/historical_90d.parquet --events data/raw/events_90d.parquet
-dvc init ; dvc remote add -d localremote ..\dvc-remote
-dvc repro ; dvc push
-git add dvc.yaml dvc.lock params.yaml .dvc data/raw/.gitignore ; git commit -m "dataset v1"
-python -m wlm.data.loader --data data/raw/historical_90d.parquet --events data/raw/events_90d.parquet
-docker compose --profile tools run --rm replay python -m wlm.data.replay --file data/raw/historical_90d.parquet --from 2026-08-10 --days 1 --speed 720
+python -m dvc repro
+python -m dvc push
+python -m dvc status
+docker compose exec -T timescaledb psql -v ON_ERROR_STOP=1 -U postgres -d wlm -f /docker-entrypoint-initdb.d/003_ground_truth_events.sql
+docker compose --profile tools run --rm loader --data /app/data/raw/historical_90d.parquet --events /app/data/raw/events_90d.parquet
+docker compose --profile tools run --rm replay --file /app/data/raw/historical_90d.parquet --from 2026-08-10 --days 1 --speed 720
 ```
 
-- **Expected output:** ≈ 129 k rows; validation prints PASS with event counts per split; `dvc status` clean; Grafana-ready history in the DB; one replayed day takes ≈ 2 minutes and rows keep their original `ts`.
+- **Generator/validator implemented:** the seeded generator writes `historical_90d.parquet` and `events_90d.parquet`; validation checks schema, UTC/monotonic timestamps, tank-derived values, event spacing and split coverage, successful refill count, and critical-level supply outages.
+- **Completed and verified:** deterministic generation of 129,159 measurements and 48 labelled events; all validation plots; DVC repro/status and push to the configured local remote; transactional, idempotent database loading; one-day accelerated MQTT replay; and execution of all EDA notebook code cells. The loader's repeated run inserted zero duplicate measurements or events.
+- **Integration results:** the database contains 129,159 `synthetic` measurements and 48 ground-truth events. The one-day replay published 1,436 messages with zero quarantined payloads; because these timestamps were already loaded, conflict handling correctly preserved the existing rows. A separate single-message smoke test verified that a new historical replay row is accepted and stored with `source='replay'`, then removed the test row.
+- **Clock caveat:** Wokwi telemetry remains excluded from the historical training dataset. Its device clock offset is unresolved; do not correct or rewrite timestamps using a guessed offset.
+- **Expected output:** `dvc status` reports that data and pipelines are up to date; replay preserves original `ts`; validation plots are in `reports/data_validation/`.
 - **Tests:** determinism (same seed → same SHA-256), schema/invariants, mass balance, controller consistency, event coverage per split, no overlapping events.
 - **Definition of Done:** FR-07, 08, 09 and the first half of FR-18 · figures look physically plausible in the EDA notebook (sawtooth levels, evening/morning peaks, flat frozen segments).
 
@@ -191,9 +195,13 @@ docker compose --profile tools run --rm replay python -m wlm.data.replay --file 
 - **Technologies:** Grafana, TimescaleDB.
 - **Depends on:** phases 2-3.
 - **Tasks**
-  1. Add `grafana` to Compose with provisioning/dashboards mounted read-only; read-only DB role `wlm_grafana`.
+  1. Add `grafana` to Compose with datasource/dashboard provisioning mounted read-only; create least-privilege DB role `wlm_grafana` (apply migration `004_grafana_role.sql` to existing database volumes).
   2. Dashboard `wlm-main.json`: gauge *Current level %*, stat *Volume L*, time series *Level history*, state timeline *Pump*, table *Alerts* (empty for now), panel *Pipeline health* (age of last message, messages/min), annotations from `ground_truth_events`; placeholders for *Forecast overlay*, *Autonomy*, *Anomaly score* (filled in phase 7).
   3. Variable `$device`; browser timezone.
+- **Step 1 complete:** Grafana 11.4.0 runs on localhost with datasource/dashboard provisioning mounted read-only. The existing database volume has migration `004_grafana_role.sql`; the `wlm_grafana` role successfully queried measurements and has no write or quarantine-table access. Grafana reports `Database Connection OK`.
+- **Step 2 complete:** provisioned dashboard `wlm-main` includes current level/volume, message age/rate, 15-minute level history, pump timeline, empty alerts, future-feature placeholders, and ground-truth event annotations. Dashboard and datasource APIs loaded successfully; all panel SQL and the annotation query executed through Grafana without errors.
+- **Step 3 complete:** the `$device` selector and browser timezone are configured. The shared dashboard page rendered with `tank-01` selected and 5-second refresh enabled.
+- **Final checks passed:** Grafana restart preserved the provisioned dashboard and datasource; the user confirmed the slider change appeared in Grafana within 5 seconds without a manual refresh. The first changed measurement reached the database 0.84 seconds after its device timestamp. Some subsequent Wokwi rows arrived 24–317 seconds after their device timestamps, so continue monitoring for intermittent simulator/broker backlog; no timestamps or records were rewritten.
 - **Commands**
 
 ```powershell
